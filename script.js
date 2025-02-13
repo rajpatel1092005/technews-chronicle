@@ -120,19 +120,19 @@ const handleSearch = debounce(() => {
 elements.searchInput.addEventListener('input', handleSearch);
 
 // NewsAPI configuration
-const NEWS_API_KEY = 'da5b35d587f033e63bea8af794b12ec6'; // Gnews API key
+const NEWS_API_KEY = 'da5b35d587f033e63bea8af794b12ec6';
 const BASE_URL = 'https://gnews.io/api/v4';
 
 // Add GitHub Pages specific configuration
 const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
-const CORS_PROXY = IS_GITHUB_PAGES ? 'https://cors-anywhere.herokuapp.com/' : '';
+const CORS_PROXY = IS_GITHUB_PAGES ? 'https://api.allorigins.win/raw?url=' : '';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
-    'ai-ml': 'artificial intelligence OR machine learning OR AI OR ML',
-    'startups': 'tech startup OR technology company',
-    'innovations': 'technology innovation OR tech breakthrough',
-    'latest': 'technology OR tech news'
+    'ai-ml': 'artificial intelligence machine learning AI technology',
+    'startups': 'technology startup tech company innovation',
+    'innovations': 'technology innovation breakthrough tech advancement',
+    'latest': 'latest technology news tech updates'
 };
 
 // Fetch news from API with timeout
@@ -154,7 +154,7 @@ async function fetchNews(category = '', query = '') {
         }
         
         const params = new URLSearchParams({
-            apikey: NEWS_API_KEY,
+            token: NEWS_API_KEY,  // Changed back to token as per Gnews docs
             lang: 'en',
             max: 10,
             q: searchQuery || 'technology news',
@@ -167,12 +167,13 @@ async function fetchNews(category = '', query = '') {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'  // Required for CORS proxy
-            }
+                'Accept': 'application/json'
+            },
+            cache: 'no-cache'  // Added to prevent caching issues
         });
         
         console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers));
 
         if (!response.ok) {
             let errorMessage = 'Failed to fetch news';
@@ -188,6 +189,9 @@ async function fetchNews(category = '', query = '') {
                 case 500:
                     errorMessage = 'Server error. Please try again later.';
                     break;
+                case 404:
+                    errorMessage = 'No news found. Please try a different search term.';
+                    break;
                 default:
                     errorMessage = `Error: ${response.status}. Please try again later.`;
             }
@@ -201,19 +205,19 @@ async function fetchNews(category = '', query = '') {
             throw new Error(data.errors[0] || 'API Error occurred');
         }
         
-        if (data.articles && data.articles.length > 0) {
-            return data.articles.map(article => ({
-                title: article.title,
-                category: getCategoryLabel(category),
-                summary: article.description,
-                source: article.source.name,
-                date: new Date(article.publishedAt).toLocaleDateString(),
-                url: article.url,
-                image: article.image || 'https://via.placeholder.com/400x200?text=No+Image'
-            }));
-        } else {
+        if (!data.articles || data.articles.length === 0) {
             throw new Error('No articles found for the selected category. Try a different search term.');
         }
+
+        return data.articles.map(article => ({
+            title: article.title,
+            category: getCategoryLabel(category),
+            summary: article.description,
+            source: article.source.name,
+            date: new Date(article.publishedAt).toLocaleDateString(),
+            url: article.url,
+            image: article.image || 'https://via.placeholder.com/400x200?text=No+Image+Available'
+        }));
     } catch (error) {
         console.error('Error fetching news:', error);
         elements.newsFeed.innerHTML = `
@@ -229,6 +233,8 @@ async function fetchNews(category = '', query = '') {
                             'Please make sure your API key is valid and not expired. You may need to register for a new key at gnews.io.' :
                             error.message.includes('quota') ? 
                             'You have reached the daily limit for news requests. The free tier allows 100 requests per day.' :
+                            error.message.includes('No articles found') ?
+                            'Try broadening your search terms or selecting a different category.' :
                             'If the error persists, try refreshing the page or checking your internet connection.'}
                     </p>
                 </div>
