@@ -123,6 +123,10 @@ elements.searchInput.addEventListener('input', handleSearch);
 const NEWS_API_KEY = 'da5b35d587f033e63bea8af794b12ec6'; // Gnews API key
 const BASE_URL = 'https://gnews.io/api/v4';
 
+// Add GitHub Pages specific configuration
+const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
+const CORS_PROXY = IS_GITHUB_PAGES ? 'https://cors-anywhere.herokuapp.com/' : '';
+
 // Category specific search terms
 const CATEGORY_QUERIES = {
     'ai-ml': 'artificial intelligence OR machine learning OR AI OR ML',
@@ -150,20 +154,21 @@ async function fetchNews(category = '', query = '') {
         }
         
         const params = new URLSearchParams({
-            apikey: NEWS_API_KEY,  // Changed from token to apikey
+            apikey: NEWS_API_KEY,
             lang: 'en',
-            max: 10,  // Reduced to 10 to stay within free tier limits
+            max: 10,
             q: searchQuery || 'technology news',
-            sortby: 'publishedAt'  // Added sorting
+            sortby: 'publishedAt'
         });
 
-        const url = `${BASE_URL}/search?${params.toString()}`;
+        const url = `${CORS_PROXY}${BASE_URL}/search?${params.toString()}`;
         console.log('Fetching news from:', url);
 
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'  // Required for CORS proxy
             }
         });
         
