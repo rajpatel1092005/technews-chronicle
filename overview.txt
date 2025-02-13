@@ -17,3 +17,14 @@ End Goal:
 A fully automated, AI-powered digital newspaper for tech and AI enthusiasts that delivers curated, high-quality content in a structured, visually engaging manner.
 
 make sure to use api's which are available in free .
+
+
+NewsAPI:
+Key:63813e5fa5964d109b55ec71994b39a6
+
+Gnews:
+Key:da5b35d587f033e63bea8af794b12ec6
+
+
+
+
