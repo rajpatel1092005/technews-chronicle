@@ -119,9 +119,9 @@ const handleSearch = debounce(() => {
 
 elements.searchInput.addEventListener('input', handleSearch);
 
-// GNews API configuration
-const NEWS_API_KEY = '4f2b55c8f3e8d3f8d48f9c65bc7d2291';  // Free Gnews API key
-const BASE_URL = 'https://gnews.io/api/v4';
+// NewsAPI configuration
+const NEWS_API_KEY = '63813e5fa5964d109b55ec71994b39a6';
+const BASE_URL = 'https://newsapi.org/v2';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
@@ -150,17 +150,27 @@ async function fetchNews(category = '', query = '') {
         }
         
         const params = new URLSearchParams({
-            token: NEWS_API_KEY,
-            lang: 'en',
-            max: 20,
-            q: searchQuery || 'technology news'
+            apiKey: NEWS_API_KEY,
+            language: 'en',
+            pageSize: 20,
+            q: searchQuery || 'technology news',
+            sortBy: 'publishedAt'
         });
 
-        const url = `${BASE_URL}/search?${params.toString()}`;
+        const url = `${BASE_URL}/everything?${params.toString()}`;
         console.log('Fetching news from:', url);
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${NEWS_API_KEY}`,
+                'X-Api-Key': NEWS_API_KEY
+            }
+        });
+
         if (!response.ok) {
+            if (response.status === 401) {
+                throw new Error('API key is invalid or missing. Please check your API key.');
+            }
             if (response.status === 429) {
                 throw new Error('API rate limit reached. Please try again later.');
             }
@@ -170,8 +180,8 @@ async function fetchNews(category = '', query = '') {
         const data = await response.json();
         console.log('API Response:', data);
         
-        if (data.errors) {
-            throw new Error(data.errors[0] || 'API Error occurred');
+        if (data.status === 'error') {
+            throw new Error(data.message || 'API Error occurred');
         }
         
         if (data.articles && data.articles.length > 0) {
@@ -182,7 +192,7 @@ async function fetchNews(category = '', query = '') {
                 source: article.source.name,
                 date: new Date(article.publishedAt).toLocaleDateString(),
                 url: article.url,
-                image: article.image || 'https://via.placeholder.com/400x200?text=No+Image'
+                image: article.urlToImage || 'https://via.placeholder.com/400x200?text=No+Image'
             }));
         } else {
             throw new Error('No articles found for the selected category. Try a different search term.');
@@ -197,6 +207,7 @@ async function fetchNews(category = '', query = '') {
                     <button onclick="retryFetch('${category}', '${query}')" class="retry-button">
                         Try Again
                     </button>
+                    <p class="error-tip">If the error persists, please check your API key configuration.</p>
                 </div>
             </div>
         `;
