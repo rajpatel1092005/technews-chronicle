@@ -149,6 +149,10 @@ async function fetchNews(category = '', query = '') {
             searchQuery = CATEGORY_QUERIES[category] || 'technology';
         }
         
+        // Add cors-anywhere proxy for development
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const apiUrl = 'https://newsapi.org/v2/everything';
+        
         const params = new URLSearchParams({
             apiKey: NEWS_API_KEY,
             language: 'en',
@@ -157,9 +161,14 @@ async function fetchNews(category = '', query = '') {
             sortBy: 'publishedAt'
         });
 
-        console.log('Fetching news from:', `${BASE_URL}/everything?${params.toString()}`);
+        const url = `${proxyUrl}${apiUrl}?${params.toString()}`;
+        console.log('Fetching news from:', url);
 
-        const response = await fetch(`${BASE_URL}/everything?${params.toString()}`);
+        const response = await fetch(url, {
+            headers: {
+                'Origin': window.location.origin
+            }
+        });
         if (!response.ok) {
             if (response.status === 429) {
                 throw new Error('API rate limit reached. Please try again later.');
