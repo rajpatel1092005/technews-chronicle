@@ -56,10 +56,10 @@ const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
-    'ai-ml': 'artificial intelligence machine learning AI technology',
-    'startups': 'technology startup tech company innovation',
-    'innovations': 'technology innovation breakthrough tech advancement',
-    'latest': 'latest technology news tech updates'
+    'ai-ml': 'artificial intelligence OR machine learning OR AI technology',
+    'startups': '(tech startup OR technology company OR tech funding OR startup funding)',
+    'innovations': '(tech innovation OR technology breakthrough OR new technology OR tech advancement)',
+    'latest': 'technology news'
 };
 
 // Optimized scroll handling with better performance
@@ -111,8 +111,9 @@ async function fetchNews(category = '', query = '') {
             token: NEWS_API_KEY,
             q: searchQuery || 'technology news',
             lang: 'en',
-            max: '10',
-            sortby: 'publishedAt'
+            max: '12',
+            sortby: 'publishedAt',
+            in: 'title,description'  // Search in both title and description
         });
 
         const apiUrl = `${BASE_URL}/search?${params}`;
