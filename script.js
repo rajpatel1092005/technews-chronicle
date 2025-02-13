@@ -119,16 +119,16 @@ const handleSearch = debounce(() => {
 
 elements.searchInput.addEventListener('input', handleSearch);
 
-// MediaStack API configuration
-const NEWS_API_KEY = '979b687ad13703fe326b3f29ea91d5b8';
-const BASE_URL = 'https://api.mediastack.com/v1';
+// NewsAPI configuration
+const NEWS_API_KEY = '63813e5fa5964d109b55ec71994b39a6';
+const BASE_URL = 'https://newsapi.org/v2';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
-    'ai-ml': 'artificial intelligence,machine learning,AI,ML',
-    'startups': 'tech startup,technology company',
-    'innovations': 'technology innovation,tech breakthrough',
-    'latest': 'technology,tech news'
+    'ai-ml': 'artificial intelligence OR machine learning OR AI OR ML',
+    'startups': 'tech startup OR technology company',
+    'innovations': 'technology innovation OR tech breakthrough',
+    'latest': 'technology OR tech news'
 };
 
 // Fetch news from API with timeout
@@ -150,16 +150,16 @@ async function fetchNews(category = '', query = '') {
         }
         
         const params = new URLSearchParams({
-            access_key: NEWS_API_KEY,
-            languages: 'en',
-            limit: 20,
-            keywords: searchQuery || 'technology news',
-            sort: 'published_desc'
+            apiKey: NEWS_API_KEY,
+            language: 'en',
+            pageSize: 20,
+            q: searchQuery || 'technology news',
+            sortBy: 'publishedAt'
         });
 
-        console.log('Fetching news from:', `${BASE_URL}/news?${params.toString()}`);
+        console.log('Fetching news from:', `${BASE_URL}/everything?${params.toString()}`);
 
-        const response = await fetch(`${BASE_URL}/news?${params.toString()}`);
+        const response = await fetch(`${BASE_URL}/everything?${params.toString()}`);
         if (!response.ok) {
             if (response.status === 429) {
                 throw new Error('API rate limit reached. Please try again later.');
@@ -170,22 +170,19 @@ async function fetchNews(category = '', query = '') {
         const data = await response.json();
         console.log('API Response:', data);
         
-        if (data.error) {
-            if (data.error.code === 104) {
-                throw new Error('Monthly API request limit reached. Please try again next month.');
-            }
-            throw new Error(data.error.info || 'API Error occurred');
+        if (data.status === 'error') {
+            throw new Error(data.message || 'API Error occurred');
         }
         
-        if (data.data && data.data.length > 0) {
-            return data.data.map(article => ({
+        if (data.articles && data.articles.length > 0) {
+            return data.articles.map(article => ({
                 title: article.title,
                 category: getCategoryLabel(category),
                 summary: article.description,
-                source: article.source,
-                date: new Date(article.published_at).toLocaleDateString(),
+                source: article.source.name,
+                date: new Date(article.publishedAt).toLocaleDateString(),
                 url: article.url,
-                image: article.image || 'https://via.placeholder.com/400x200?text=No+Image'
+                image: article.urlToImage || 'https://via.placeholder.com/400x200?text=No+Image'
             }));
         } else {
             throw new Error('No articles found for the selected category. Try a different search term.');
