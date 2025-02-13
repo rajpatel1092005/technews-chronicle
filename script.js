@@ -43,89 +43,16 @@ elements.themeToggle.addEventListener('click', () => {
     setTheme(isDark);
 });
 
-// Optimized scroll handling
-let lastScrollY = window.scrollY;
-const handleScroll = debounce(() => {
-    requestAnimationFrame(() => {
-        const currentScrollY = window.scrollY;
-        if (window.innerWidth <= 768) {
-            elements.header.classList.toggle('header-hidden', 
-                currentScrollY > lastScrollY && currentScrollY > 100);
-        }
-        lastScrollY = currentScrollY;
-    });
-}, 10);
-
-window.addEventListener('scroll', handleScroll, { passive: true });
-
-// Optimized boot animation
-window.addEventListener('load', () => {
-    setTimeout(() => {
-        elements.bootAnimation.style.opacity = '0';
-        setTimeout(() => {
-            elements.bootAnimation.remove(); // Use remove instead of display none
-        }, 300);
-    }, 1500); // Reduced time
-});
-
-// Set current year
-elements.currentYear.textContent = new Date().getFullYear();
-
-// Optimized news card creation
-const createNewsCard = (() => {
-    const template = document.createElement('template');
-    
-    return (article) => {
-        template.innerHTML = `
-            <article class="news-card">
-                <div class="news-content">
-                    ${article.image ? `<img loading="lazy" src="${article.image}" alt="${article.title}" class="news-image">` : ''}
-                    <span class="category">${article.category}</span>
-                    <h2><a href="${article.url}" target="_blank">${article.title}</a></h2>
-                    <p>${article.summary || 'No description available'}</p>
-                    <div class="news-meta">
-                        <span>${article.source}</span>
-                        <span>${article.date}</span>
-                    </div>
-                </div>
-            </article>
-        `;
-        return template.content.firstElementChild.cloneNode(true);
-    };
-})();
-
-// Optimized news display
-function displayNews(articles) {
-    const fragment = document.createDocumentFragment();
-    if (articles.length === 0) {
-        const noResults = document.createElement('div');
-        noResults.className = 'no-results';
-        noResults.textContent = 'No articles found';
-        fragment.appendChild(noResults);
-    } else {
-        articles.forEach(article => {
-            fragment.appendChild(createNewsCard(article));
-        });
-    }
-    elements.newsFeed.innerHTML = '';
-    elements.newsFeed.appendChild(fragment);
-}
-
-// Optimized search handling
-const handleSearch = debounce(() => {
-    const activeCategory = document.querySelector('.main-nav a.active').getAttribute('data-category');
-    fetchAndDisplayNews(activeCategory, elements.searchInput.value);
-}, 400);
-
-elements.searchInput.addEventListener('input', handleSearch);
-
 // NewsAPI configuration
 const NEWS_API_KEY = 'da5b35d587f033e63bea8af794b12ec6';
 const BASE_URL = 'https://gnews.io/api/v4';
 
 // Add GitHub Pages specific configuration
 const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+
+// Detect Safari browser
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
@@ -134,6 +61,32 @@ const CATEGORY_QUERIES = {
     'innovations': 'technology innovation breakthrough tech advancement',
     'latest': 'latest technology news tech updates'
 };
+
+// Optimized scroll handling with better performance
+let lastScrollY = window.scrollY;
+let ticking = false;
+
+function handleScroll() {
+    lastScrollY = window.scrollY;
+    if (!ticking) {
+        window.requestAnimationFrame(() => {
+            if (window.innerWidth <= 768) {
+                const shouldHide = lastScrollY > 100 && lastScrollY > lastScrollPosition;
+                elements.header.style.transform = shouldHide ? 'translateY(-100%)' : 'translateY(0)';
+                elements.header.style.transition = 'transform 0.3s ease';
+            } else {
+                elements.header.style.transform = 'translateY(0)';
+            }
+            lastScrollPosition = lastScrollY;
+            ticking = false;
+        });
+        ticking = true;
+    }
+}
+
+let lastScrollPosition = 0;
+window.addEventListener('scroll', handleScroll, { passive: true });
+window.addEventListener('resize', handleScroll, { passive: true });
 
 // Fetch news from API with timeout
 async function fetchNews(category = '', query = '') {
@@ -164,14 +117,21 @@ async function fetchNews(category = '', query = '') {
 
         const apiUrl = `${BASE_URL}/search?${params}`;
         
-        // Always use CORS proxy for GitHub Pages, direct call for local
-        const finalUrl = IS_GITHUB_PAGES ? 
-            `${CORS_PROXY}${encodeURIComponent(apiUrl)}` : 
-            apiUrl;
+        // Use different CORS handling for Safari on GitHub Pages
+        let finalUrl = apiUrl;
+        if (IS_GITHUB_PAGES) {
+            finalUrl = isSafari ? 
+                `${CORS_PROXY}${apiUrl}` : 
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+        }
 
         console.log('Fetching news from:', finalUrl);
 
-        const response = await fetch(finalUrl);
+        const response = await fetch(finalUrl, {
+            headers: isSafari ? {
+                'Origin': window.location.origin
+            } : {}
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -279,5 +239,66 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// Optimized news card creation
+const createNewsCard = (() => {
+    const template = document.createElement('template');
+    
+    return (article) => {
+        template.innerHTML = `
+            <article class="news-card">
+                <div class="news-content">
+                    ${article.image ? `<img loading="lazy" src="${article.image}" alt="${article.title}" class="news-image">` : ''}
+                    <span class="category">${article.category}</span>
+                    <h2><a href="${article.url}" target="_blank">${article.title}</a></h2>
+                    <p>${article.summary || 'No description available'}</p>
+                    <div class="news-meta">
+                        <span>${article.source}</span>
+                        <span>${article.date}</span>
+                    </div>
+                </div>
+            </article>
+        `;
+        return template.content.firstElementChild.cloneNode(true);
+    };
+})();
+
+// Optimized news display
+function displayNews(articles) {
+    const fragment = document.createDocumentFragment();
+    if (articles.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'no-results';
+        noResults.textContent = 'No articles found';
+        fragment.appendChild(noResults);
+    } else {
+        articles.forEach(article => {
+            fragment.appendChild(createNewsCard(article));
+        });
+    }
+    elements.newsFeed.innerHTML = '';
+    elements.newsFeed.appendChild(fragment);
+}
+
+// Optimized search handling
+const handleSearch = debounce(() => {
+    const activeCategory = document.querySelector('.main-nav a.active').getAttribute('data-category');
+    fetchAndDisplayNews(activeCategory, elements.searchInput.value);
+}, 400);
+
+elements.searchInput.addEventListener('input', handleSearch);
+
+// Optimized boot animation
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        elements.bootAnimation.style.opacity = '0';
+        setTimeout(() => {
+            elements.bootAnimation.remove(); // Use remove instead of display none
+        }, 300);
+    }, 1500); // Reduced time
+});
+
+// Set current year
+elements.currentYear.textContent = new Date().getFullYear();
 
 // Rest of your existing code...
