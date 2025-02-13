@@ -125,7 +125,7 @@ const BASE_URL = 'https://gnews.io/api/v4';
 
 // Add GitHub Pages specific configuration
 const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
-const CORS_PROXY = IS_GITHUB_PAGES ? 'https://corsproxy.io/?' : '';
+const CORS_PROXY = 'https://corsproxy.io/?';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
@@ -146,76 +146,43 @@ async function fetchNews(category = '', query = '') {
     `;
 
     try {
-        // Add timeout for fetch
-        const timeoutDuration = 15000; // 15 seconds
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
-
         let searchQuery = query;
         
         // If no specific search query but category is selected
         if (!query && category) {
             searchQuery = CATEGORY_QUERIES[category] || 'technology';
         }
-        
-        const params = new URLSearchParams({
-            token: NEWS_API_KEY,
-            lang: 'en',
-            max: 10,
-            q: searchQuery || 'technology news',
-            sortby: 'publishedAt'
-        });
 
-        const url = `${CORS_PROXY}${BASE_URL}/search?${params.toString()}`;
-        console.log('Fetching news from:', url);
+        // Construct the URL with proper encoding
+        const apiUrl = new URL(`${BASE_URL}/search`);
+        apiUrl.searchParams.append('token', NEWS_API_KEY);
+        apiUrl.searchParams.append('q', searchQuery || 'technology news');
+        apiUrl.searchParams.append('lang', 'en');
+        apiUrl.searchParams.append('max', '10');
+        apiUrl.searchParams.append('sortby', 'publishedAt');
 
-        const response = await fetch(url, {
+        // Use CORS proxy for GitHub Pages
+        const finalUrl = IS_GITHUB_PAGES ? `${CORS_PROXY}${encodeURIComponent(apiUrl.toString())}` : apiUrl.toString();
+        console.log('Fetching news from:', finalUrl);
+
+        const response = await fetch(finalUrl, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json',
-                'x-requested-with': 'XMLHttpRequest'
-            },
-            cache: 'no-cache',
-            signal: controller.signal
+                'Accept': 'application/json'
+            }
         });
 
-        clearTimeout(timeoutId); // Clear timeout if fetch succeeds
-        
-        console.log('Response status:', response.status);
-        console.log('Response headers:', Object.fromEntries(response.headers));
-
         if (!response.ok) {
-            let errorMessage = 'Failed to fetch news';
-            
-            switch (response.status) {
-                case 401:
-                case 403:
-                    errorMessage = 'API key is invalid or expired. Please check your Gnews API key.';
-                    break;
-                case 429:
-                    errorMessage = 'Daily quota exceeded. Please try again tomorrow.';
-                    break;
-                case 500:
-                    errorMessage = 'Server error. Please try again later.';
-                    break;
-                case 404:
-                    errorMessage = 'No news found. Please try a different search term.';
-                    break;
-                default:
-                    errorMessage = `Error: ${response.status}. Please try again later.`;
-            }
-            throw new Error(errorMessage);
+            const errorText = await response.text();
+            console.error('API Error Response:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('API Response:', data);
-        
-        if (data.errors) {
-            throw new Error(data.errors[0] || 'API Error occurred');
-        }
-        
+
         if (!data.articles || data.articles.length === 0) {
-            throw new Error('No articles found for the selected category. Try a different search term.');
+            throw new Error('No articles found for the selected category.');
         }
 
         return data.articles.map(article => ({
@@ -232,18 +199,17 @@ async function fetchNews(category = '', query = '') {
         let errorMessage = error.message;
         let errorTip = '';
 
-        if (error.name === 'AbortError') {
-            errorMessage = 'Request timed out. Please check your internet connection and try again.';
-            errorTip = 'The server took too long to respond. This might be due to slow internet or server issues.';
-        } else if (error.message.includes('API key')) {
-            errorTip = 'Please make sure your API key is valid and not expired. You may need to register for a new key at gnews.io.';
-        } else if (error.message.includes('quota')) {
+        if (!navigator.onLine) {
+            errorMessage = 'No internet connection detected.';
+            errorTip = 'Please check your internet connection and try again.';
+        } else if (error.message.includes('403')) {
+            errorMessage = 'API key is invalid or expired. Please check your Gnews API key.';
+            errorTip = 'Make sure your API key is valid and not expired. You may need to register for a new key at gnews.io.';
+        } else if (error.message.includes('429')) {
+            errorMessage = 'Daily quota exceeded. Please try again tomorrow.';
             errorTip = 'You have reached the daily limit for news requests. The free tier allows 100 requests per day.';
         } else if (error.message.includes('No articles found')) {
             errorTip = 'Try broadening your search terms or selecting a different category.';
-        } else if (!navigator.onLine) {
-            errorMessage = 'No internet connection detected.';
-            errorTip = 'Please check your internet connection and try again.';
         } else {
             errorTip = 'If the error persists, try refreshing the page or checking your internet connection.';
         }
