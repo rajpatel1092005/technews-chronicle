@@ -121,7 +121,7 @@ elements.searchInput.addEventListener('input', handleSearch);
 
 // NewsAPI configuration
 const NEWS_API_KEY = '63813e5fa5964d109b55ec71994b39a6';
-const BASE_URL = 'https://newsapi.org/v2';
+const BASE_URL = '/api';  // Updated to use Netlify proxy
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
