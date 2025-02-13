@@ -125,7 +125,7 @@ const BASE_URL = 'https://gnews.io/api/v4';
 
 // Add GitHub Pages specific configuration
 const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
-const CORS_PROXY = 'https://corsproxy.io/?';
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
@@ -153,24 +153,25 @@ async function fetchNews(category = '', query = '') {
             searchQuery = CATEGORY_QUERIES[category] || 'technology';
         }
 
-        // Construct the URL with proper encoding
-        const apiUrl = new URL(`${BASE_URL}/search`);
-        apiUrl.searchParams.append('token', NEWS_API_KEY);
-        apiUrl.searchParams.append('q', searchQuery || 'technology news');
-        apiUrl.searchParams.append('lang', 'en');
-        apiUrl.searchParams.append('max', '10');
-        apiUrl.searchParams.append('sortby', 'publishedAt');
+        // Construct the base URL with parameters
+        const params = new URLSearchParams({
+            token: NEWS_API_KEY,
+            q: searchQuery || 'technology news',
+            lang: 'en',
+            max: '10',
+            sortby: 'publishedAt'
+        });
 
-        // Use CORS proxy for GitHub Pages
-        const finalUrl = IS_GITHUB_PAGES ? `${CORS_PROXY}${encodeURIComponent(apiUrl.toString())}` : apiUrl.toString();
+        const apiUrl = `${BASE_URL}/search?${params}`;
+        
+        // Always use CORS proxy for GitHub Pages, direct call for local
+        const finalUrl = IS_GITHUB_PAGES ? 
+            `${CORS_PROXY}${encodeURIComponent(apiUrl)}` : 
+            apiUrl;
+
         console.log('Fetching news from:', finalUrl);
 
-        const response = await fetch(finalUrl, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
+        const response = await fetch(finalUrl);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -211,6 +212,7 @@ async function fetchNews(category = '', query = '') {
         } else if (error.message.includes('No articles found')) {
             errorTip = 'Try broadening your search terms or selecting a different category.';
         } else {
+            errorMessage = 'Failed to fetch news. Please try again.';
             errorTip = 'If the error persists, try refreshing the page or checking your internet connection.';
         }
 
