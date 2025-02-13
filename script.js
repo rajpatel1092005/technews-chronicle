@@ -125,7 +125,7 @@ const BASE_URL = 'https://gnews.io/api/v4';
 
 // Add GitHub Pages specific configuration
 const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
-const CORS_PROXY = IS_GITHUB_PAGES ? 'https://api.allorigins.win/raw?url=' : '';
+const CORS_PROXY = IS_GITHUB_PAGES ? 'https://corsproxy.io/?' : '';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
@@ -146,6 +146,11 @@ async function fetchNews(category = '', query = '') {
     `;
 
     try {
+        // Add timeout for fetch
+        const timeoutDuration = 15000; // 15 seconds
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+
         let searchQuery = query;
         
         // If no specific search query but category is selected
@@ -154,7 +159,7 @@ async function fetchNews(category = '', query = '') {
         }
         
         const params = new URLSearchParams({
-            token: NEWS_API_KEY,  // Changed back to token as per Gnews docs
+            token: NEWS_API_KEY,
             lang: 'en',
             max: 10,
             q: searchQuery || 'technology news',
@@ -167,10 +172,14 @@ async function fetchNews(category = '', query = '') {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'x-requested-with': 'XMLHttpRequest'
             },
-            cache: 'no-cache'  // Added to prevent caching issues
+            cache: 'no-cache',
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId); // Clear timeout if fetch succeeds
         
         console.log('Response status:', response.status);
         console.log('Response headers:', Object.fromEntries(response.headers));
@@ -220,23 +229,34 @@ async function fetchNews(category = '', query = '') {
         }));
     } catch (error) {
         console.error('Error fetching news:', error);
+        let errorMessage = error.message;
+        let errorTip = '';
+
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out. Please check your internet connection and try again.';
+            errorTip = 'The server took too long to respond. This might be due to slow internet or server issues.';
+        } else if (error.message.includes('API key')) {
+            errorTip = 'Please make sure your API key is valid and not expired. You may need to register for a new key at gnews.io.';
+        } else if (error.message.includes('quota')) {
+            errorTip = 'You have reached the daily limit for news requests. The free tier allows 100 requests per day.';
+        } else if (error.message.includes('No articles found')) {
+            errorTip = 'Try broadening your search terms or selecting a different category.';
+        } else if (!navigator.onLine) {
+            errorMessage = 'No internet connection detected.';
+            errorTip = 'Please check your internet connection and try again.';
+        } else {
+            errorTip = 'If the error persists, try refreshing the page or checking your internet connection.';
+        }
+
         elements.newsFeed.innerHTML = `
             <div class="error-message">
                 <p>😕 Unable to load news</p>
-                <p class="error-details">${error.message}</p>
+                <p class="error-details">${errorMessage}</p>
                 <div class="error-actions">
                     <button onclick="retryFetch('${category}', '${query}')" class="retry-button">
                         Try Again
                     </button>
-                    <p class="error-tip">
-                        ${error.message.includes('API key') ? 
-                            'Please make sure your API key is valid and not expired. You may need to register for a new key at gnews.io.' :
-                            error.message.includes('quota') ? 
-                            'You have reached the daily limit for news requests. The free tier allows 100 requests per day.' :
-                            error.message.includes('No articles found') ?
-                            'Try broadening your search terms or selecting a different category.' :
-                            'If the error persists, try refreshing the page or checking your internet connection.'}
-                    </p>
+                    <p class="error-tip">${errorTip}</p>
                 </div>
             </div>
         `;
