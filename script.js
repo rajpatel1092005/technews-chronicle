@@ -119,16 +119,16 @@ const handleSearch = debounce(() => {
 
 elements.searchInput.addEventListener('input', handleSearch);
 
-// GNews API configuration
-const NEWS_API_KEY = '63813e5fa5964d109b55ec71994b39a6';
-const BASE_URL = 'https://gnews.io/api/v4';
+// MediaStack API configuration
+const NEWS_API_KEY = '979b687ad13703fe326b3f29ea91d5b8';
+const BASE_URL = 'https://api.mediastack.com/v1';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
-    'ai-ml': 'artificial intelligence OR machine learning OR AI OR ML',
-    'startups': 'tech startup OR technology company',
-    'innovations': 'technology innovation OR tech breakthrough',
-    'latest': 'technology OR tech news'
+    'ai-ml': 'artificial intelligence,machine learning,AI,ML',
+    'startups': 'tech startup,technology company',
+    'innovations': 'technology innovation,tech breakthrough',
+    'latest': 'technology,tech news'
 };
 
 // Fetch news from API with timeout
@@ -141,11 +141,6 @@ async function fetchNews(category = '', query = '') {
         </div>
     `;
 
-    // Create timeout promise
-    const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
-    });
-
     try {
         let searchQuery = query;
         
@@ -155,39 +150,52 @@ async function fetchNews(category = '', query = '') {
         }
         
         const params = new URLSearchParams({
-            token: NEWS_API_KEY,
-            lang: 'en',
-            max: 20,
-            q: searchQuery || 'technology news',
+            access_key: NEWS_API_KEY,
+            languages: 'en',
+            limit: 20,
+            keywords: searchQuery || 'technology news',
+            sort: 'published_desc'
         });
 
-        // Race between fetch and timeout
-        const response = await Promise.race([
-            fetch(`${BASE_URL}/search?${params.toString()}`),
-            timeoutPromise
-        ]);
+        console.log('Fetching news from:', `${BASE_URL}/news?${params.toString()}`);
 
-        const data = await response.json();
+        const response = await fetch(`${BASE_URL}/news?${params.toString()}`);
+        if (!response.ok) {
+            if (response.status === 429) {
+                throw new Error('API rate limit reached. Please try again later.');
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
-        if (data.articles && data.articles.length > 0) {
-            return data.articles.map(article => ({
+        const data = await response.json();
+        console.log('API Response:', data);
+        
+        if (data.error) {
+            if (data.error.code === 104) {
+                throw new Error('Monthly API request limit reached. Please try again next month.');
+            }
+            throw new Error(data.error.info || 'API Error occurred');
+        }
+        
+        if (data.data && data.data.length > 0) {
+            return data.data.map(article => ({
                 title: article.title,
                 category: getCategoryLabel(category),
                 summary: article.description,
-                source: article.source.name,
-                date: new Date(article.publishedAt).toLocaleDateString(),
+                source: article.source,
+                date: new Date(article.published_at).toLocaleDateString(),
                 url: article.url,
-                image: article.image
+                image: article.image || 'https://via.placeholder.com/400x200?text=No+Image'
             }));
         } else {
-            throw new Error(data.errors?.[0] || 'No articles found');
+            throw new Error('No articles found for the selected category. Try a different search term.');
         }
     } catch (error) {
         console.error('Error fetching news:', error);
-        // Show error message in the news feed
         elements.newsFeed.innerHTML = `
             <div class="error-message">
                 <p>😕 Unable to load news</p>
+                <p class="error-details">${error.message}</p>
                 <button onclick="retryFetch('${category}', '${query}')" class="retry-button">
                     Try Again
                 </button>
@@ -224,5 +232,25 @@ async function fetchAndDisplayNews(category, searchTerm = '') {
         console.error('Error displaying news:', error);
     }
 }
+
+// Initialize news feed on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Get the default category (latest)
+    const defaultCategory = document.querySelector('.main-nav a.active').getAttribute('data-category');
+    fetchAndDisplayNews(defaultCategory);
+
+    // Add click event listeners to navigation links
+    elements.navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Remove active class from all links
+            elements.navLinks.forEach(l => l.classList.remove('active'));
+            // Add active class to clicked link
+            link.classList.add('active');
+            // Fetch news for the selected category
+            fetchAndDisplayNews(link.getAttribute('data-category'));
+        });
+    });
+});
 
 // Rest of your existing code...
