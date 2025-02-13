@@ -1,0 +1,19 @@
+Website Name: TechNews Chronicle
+Description:
+TechNews Chronicle is an AI-powered news aggregation platform that scrapes the latest news from the web, filters tech and AI-related articles, and transforms them into a visually appealing, structured digital newspaper.
+
+Features:
+
+1)Automated News Scraper – Collects the latest news from multiple web sources.
+2)Smart AI Filtering – Extracts only tech and AI industry news from trusted sources like TechCrunch, Wired, MIT Tech Review, and Ars Technica.
+3)Natural Language Processing (NLP) Formatting – Restructures news articles for clarity, coherence, and readability.
+4)Professional Newspaper Layout – Converts content into a classic newspaper format with proper headlines, subheadings, summaries, and full-body text.
+5)Embedded Media – Integrates reference links, high-quality images, and relevant graphs/charts for deeper insights.
+6)Highlighting & Key Points – Automatically detects and emphasizes important topics, trends, and takeaways.
+7)Customizable News Feed – Users can filter news based on specific AI topics, companies, or subcategories like machine learning, robotics, or data science.
+8)Responsive & Elegant UI – Ensures a professional, sleek, and mobile-friendly reading experience.
+
+End Goal:
+A fully automated, AI-powered digital newspaper for tech and AI enthusiasts that delivers curated, high-quality content in a structured, visually engaging manner.
+
+make sure to use api's which are available in free .
