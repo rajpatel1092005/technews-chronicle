@@ -119,15 +119,15 @@ const handleSearch = debounce(() => {
 
 elements.searchInput.addEventListener('input', handleSearch);
 
-// NewsAPI configuration
+// GNews API configuration
 const NEWS_API_KEY = '63813e5fa5964d109b55ec71994b39a6';
-const BASE_URL = '/api';  // Updated to use Netlify proxy
+const BASE_URL = 'https://gnews.io/api/v4';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
     'ai-ml': 'artificial intelligence OR machine learning OR AI OR ML',
-    'startups': 'tech startup OR technology company funding OR tech innovation company',
-    'innovations': 'technology innovation OR tech breakthrough OR new technology development',
+    'startups': 'tech startup OR technology company',
+    'innovations': 'technology innovation OR tech breakthrough',
     'latest': 'technology OR tech news'
 };
 
@@ -147,7 +147,6 @@ async function fetchNews(category = '', query = '') {
     });
 
     try {
-        let url = `${BASE_URL}/everything?`;
         let searchQuery = query;
         
         // If no specific search query but category is selected
@@ -156,22 +155,21 @@ async function fetchNews(category = '', query = '') {
         }
         
         const params = new URLSearchParams({
-            apiKey: NEWS_API_KEY,
-            language: 'en',
-            pageSize: 20,
+            token: NEWS_API_KEY,
+            lang: 'en',
+            max: 20,
             q: searchQuery || 'technology news',
-            sortBy: 'publishedAt'
         });
 
         // Race between fetch and timeout
         const response = await Promise.race([
-            fetch(url + params.toString()),
+            fetch(`${BASE_URL}/search?${params.toString()}`),
             timeoutPromise
         ]);
 
         const data = await response.json();
         
-        if (data.status === 'ok' && data.articles && data.articles.length > 0) {
+        if (data.articles && data.articles.length > 0) {
             return data.articles.map(article => ({
                 title: article.title,
                 category: getCategoryLabel(category),
@@ -179,10 +177,10 @@ async function fetchNews(category = '', query = '') {
                 source: article.source.name,
                 date: new Date(article.publishedAt).toLocaleDateString(),
                 url: article.url,
-                image: article.urlToImage
+                image: article.image
             }));
         } else {
-            throw new Error(data.message || 'No articles found');
+            throw new Error(data.errors?.[0] || 'No articles found');
         }
     } catch (error) {
         console.error('Error fetching news:', error);
