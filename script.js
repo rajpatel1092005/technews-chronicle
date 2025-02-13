@@ -119,9 +119,9 @@ const handleSearch = debounce(() => {
 
 elements.searchInput.addEventListener('input', handleSearch);
 
-// NewsAPI configuration
-const NEWS_API_KEY = '63813e5fa5964d109b55ec71994b39a6';
-const BASE_URL = 'https://newsapi.org/v2';
+// GNews API configuration
+const NEWS_API_KEY = '4f2b55c8f3e8d3f8d48f9c65bc7d2291';  // Free Gnews API key
+const BASE_URL = 'https://gnews.io/api/v4';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
@@ -149,26 +149,17 @@ async function fetchNews(category = '', query = '') {
             searchQuery = CATEGORY_QUERIES[category] || 'technology';
         }
         
-        // Add cors-anywhere proxy for development
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        const apiUrl = 'https://newsapi.org/v2/everything';
-        
         const params = new URLSearchParams({
-            apiKey: NEWS_API_KEY,
-            language: 'en',
-            pageSize: 20,
-            q: searchQuery || 'technology news',
-            sortBy: 'publishedAt'
+            token: NEWS_API_KEY,
+            lang: 'en',
+            max: 20,
+            q: searchQuery || 'technology news'
         });
 
-        const url = `${proxyUrl}${apiUrl}?${params.toString()}`;
+        const url = `${BASE_URL}/search?${params.toString()}`;
         console.log('Fetching news from:', url);
 
-        const response = await fetch(url, {
-            headers: {
-                'Origin': window.location.origin
-            }
-        });
+        const response = await fetch(url);
         if (!response.ok) {
             if (response.status === 429) {
                 throw new Error('API rate limit reached. Please try again later.');
@@ -179,8 +170,8 @@ async function fetchNews(category = '', query = '') {
         const data = await response.json();
         console.log('API Response:', data);
         
-        if (data.status === 'error') {
-            throw new Error(data.message || 'API Error occurred');
+        if (data.errors) {
+            throw new Error(data.errors[0] || 'API Error occurred');
         }
         
         if (data.articles && data.articles.length > 0) {
@@ -191,7 +182,7 @@ async function fetchNews(category = '', query = '') {
                 source: article.source.name,
                 date: new Date(article.publishedAt).toLocaleDateString(),
                 url: article.url,
-                image: article.urlToImage || 'https://via.placeholder.com/400x200?text=No+Image'
+                image: article.image || 'https://via.placeholder.com/400x200?text=No+Image'
             }));
         } else {
             throw new Error('No articles found for the selected category. Try a different search term.');
@@ -202,9 +193,11 @@ async function fetchNews(category = '', query = '') {
             <div class="error-message">
                 <p>😕 Unable to load news</p>
                 <p class="error-details">${error.message}</p>
-                <button onclick="retryFetch('${category}', '${query}')" class="retry-button">
-                    Try Again
-                </button>
+                <div class="error-actions">
+                    <button onclick="retryFetch('${category}', '${query}')" class="retry-button">
+                        Try Again
+                    </button>
+                </div>
             </div>
         `;
         return [];
