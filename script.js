@@ -120,8 +120,8 @@ const handleSearch = debounce(() => {
 elements.searchInput.addEventListener('input', handleSearch);
 
 // NewsAPI configuration
-const NEWS_API_KEY = '63813e5fa5964d109b55ec71994b39a6';
-const BASE_URL = 'https://newsapi.org/v2';
+const NEWS_API_KEY = 'da5b35d587f033e63bea8af794b12ec6'; // Gnews API key
+const BASE_URL = 'https://gnews.io/api/v4';
 
 // Category specific search terms
 const CATEGORY_QUERIES = {
@@ -150,38 +150,50 @@ async function fetchNews(category = '', query = '') {
         }
         
         const params = new URLSearchParams({
-            apiKey: NEWS_API_KEY,
-            language: 'en',
-            pageSize: 20,
+            apikey: NEWS_API_KEY,  // Changed from token to apikey
+            lang: 'en',
+            max: 10,  // Reduced to 10 to stay within free tier limits
             q: searchQuery || 'technology news',
-            sortBy: 'publishedAt'
+            sortby: 'publishedAt'  // Added sorting
         });
 
-        const url = `${BASE_URL}/everything?${params.toString()}`;
+        const url = `${BASE_URL}/search?${params.toString()}`;
         console.log('Fetching news from:', url);
 
         const response = await fetch(url, {
+            method: 'GET',
             headers: {
-                'Authorization': `Bearer ${NEWS_API_KEY}`,
-                'X-Api-Key': NEWS_API_KEY
+                'Accept': 'application/json'
             }
         });
+        
+        console.log('Response status:', response.status);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('API key is invalid or missing. Please check your API key.');
+            let errorMessage = 'Failed to fetch news';
+            
+            switch (response.status) {
+                case 401:
+                case 403:
+                    errorMessage = 'API key is invalid or expired. Please check your Gnews API key.';
+                    break;
+                case 429:
+                    errorMessage = 'Daily quota exceeded. Please try again tomorrow.';
+                    break;
+                case 500:
+                    errorMessage = 'Server error. Please try again later.';
+                    break;
+                default:
+                    errorMessage = `Error: ${response.status}. Please try again later.`;
             }
-            if (response.status === 429) {
-                throw new Error('API rate limit reached. Please try again later.');
-            }
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(errorMessage);
         }
         
         const data = await response.json();
         console.log('API Response:', data);
         
-        if (data.status === 'error') {
-            throw new Error(data.message || 'API Error occurred');
+        if (data.errors) {
+            throw new Error(data.errors[0] || 'API Error occurred');
         }
         
         if (data.articles && data.articles.length > 0) {
@@ -192,7 +204,7 @@ async function fetchNews(category = '', query = '') {
                 source: article.source.name,
                 date: new Date(article.publishedAt).toLocaleDateString(),
                 url: article.url,
-                image: article.urlToImage || 'https://via.placeholder.com/400x200?text=No+Image'
+                image: article.image || 'https://via.placeholder.com/400x200?text=No+Image'
             }));
         } else {
             throw new Error('No articles found for the selected category. Try a different search term.');
@@ -207,7 +219,13 @@ async function fetchNews(category = '', query = '') {
                     <button onclick="retryFetch('${category}', '${query}')" class="retry-button">
                         Try Again
                     </button>
-                    <p class="error-tip">If the error persists, please check your API key configuration.</p>
+                    <p class="error-tip">
+                        ${error.message.includes('API key') ? 
+                            'Please make sure your API key is valid and not expired. You may need to register for a new key at gnews.io.' :
+                            error.message.includes('quota') ? 
+                            'You have reached the daily limit for news requests. The free tier allows 100 requests per day.' :
+                            'If the error persists, try refreshing the page or checking your internet connection.'}
+                    </p>
                 </div>
             </div>
         `;
